@@ -9,10 +9,10 @@ canvas.addEventListener("touchstart", function (e) {
     e.preventDefault();
 }, { passive: false });
 
-// ===== GAME STATE =====
-let gameState = "cover"; // cover | playing
+// ================= STATE =================
+let gameStarted = false;   // IMPORTANT
 
-// ===== BIRD =====
+// ================= BIRD =================
 let bird = {
     x: 80,
     y: 250,
@@ -23,7 +23,7 @@ let bird = {
     jump: -7
 };
 
-// ===== PIPES =====
+// ================= PIPES =================
 let pipes = [];
 let pipeWidth = 80;
 let pipeGap = 170;
@@ -33,7 +33,7 @@ let pipeDistance = 220;
 let score = 0;
 let highScore = localStorage.getItem("highScore") || 0;
 
-// ===== LOAD IMAGES =====
+// ================= IMAGES =================
 const birdImg = new Image();
 birdImg.src = "ball.jpeg";
 
@@ -43,26 +43,26 @@ const pipeImages = [
     "pic 3.jpeg",
     "pic 4.jpeg",
     "pic 5.jpeg",
-    "pic 6.jpeg"   // ✅ Added pic 6
+    "pic 6.jpeg"
 ];
 
-// ===== LOAD AUDIO =====
+// ================= AUDIO =================
 const jumpSound = new Audio("jump.mp3");
 const crashSound = new Audio("crash.mp3");
 
-// ===== START GAME =====
+// ================= START GAME =================
 function startGame() {
-    gameState = "playing";
+    gameStarted = true;
     bird.y = 250;
     bird.velocity = 0;
     pipes = [];
     score = 0;
 }
 
-// ===== CONTROLS =====
+// ================= CONTROLS =================
 document.addEventListener("keydown", function (e) {
     if (e.code === "Space") {
-        if (gameState === "cover") {
+        if (!gameStarted) {
             startGame();
         } else {
             bird.velocity = bird.jump;
@@ -73,7 +73,7 @@ document.addEventListener("keydown", function (e) {
 });
 
 canvas.addEventListener("touchstart", function () {
-    if (gameState === "cover") {
+    if (!gameStarted) {
         startGame();
     } else {
         bird.velocity = bird.jump;
@@ -82,7 +82,7 @@ canvas.addEventListener("touchstart", function () {
     }
 });
 
-// ===== CREATE PIPE =====
+// ================= CREATE PIPE =================
 function createPipe() {
     let topHeight = Math.random() * 200 + 100;
 
@@ -97,13 +97,13 @@ function createPipe() {
     });
 }
 
-// ===== GAME LOOP =====
+// ================= GAME LOOP =================
 function update() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // ================= COVER PAGE =================
-    if (gameState === "cover") {
+    // ===== COVER PAGE =====
+    if (!gameStarted) {
 
         ctx.fillStyle = "#87CEEB";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -118,10 +118,10 @@ function update() {
         ctx.fillText("Tap to Start", canvas.width / 2, 270);
 
         requestAnimationFrame(update);
-        return;
+        return;   // STOP GAME LOGIC
     }
 
-    // ================= GAME PLAY =================
+    // ===== GAME PLAY =====
     ctx.fillStyle = "#87CEEB";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -141,7 +141,7 @@ function update() {
         ctx.drawImage(pipe.img, pipe.x, 0, pipeWidth, pipe.top);
         ctx.drawImage(pipe.img, pipe.x, pipe.bottom, pipeWidth, canvas.height - pipe.bottom);
 
-        // Collision detection
+        // Collision
         if (
             bird.x < pipe.x + pipeWidth &&
             bird.x + bird.width > pipe.x &&
@@ -156,10 +156,9 @@ function update() {
                 localStorage.setItem("highScore", highScore);
             }
 
-            gameState = "cover";
+            gameStarted = false;  // BACK TO COVER
         }
 
-        // Score update
         if (pipe.x + pipeWidth === bird.x) {
             score++;
         }
@@ -167,10 +166,9 @@ function update() {
 
     pipes = pipes.filter(pipe => pipe.x + pipeWidth > 0);
 
-    // Draw bird
     ctx.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
 
-    // ===== SCORE BOX (SHIFTED RIGHT) =====
+    // ===== SCORE BOX =====
     ctx.fillStyle = "rgba(0,0,0,0.6)";
     ctx.fillRect(50, 20, 190, 70);
 
