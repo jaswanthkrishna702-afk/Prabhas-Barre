@@ -1,206 +1,183 @@
+// ===== CANVAS SETUP =====
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 canvas.width = 400;
 canvas.height = 600;
 
-let gameStarted = false;
-let gameOver = false;
+// Prevent mobile scrolling
+canvas.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+}, { passive: false });
 
-let gravity = 0.5;
-let velocity = 0;
-let jumpPower = -8;
+
+// ===== GAME VARIABLES =====
+let bird = {
+    x: 80,
+    y: 250,
+    width: 40,
+    height: 40,
+    velocity: 0,
+    gravity: 0.4,
+    jump: -7
+};
+
+let pipes = [];
+let pipeWidth = 80;
+let pipeGap = 170; // good starting gap
+let pipeSpeed = 2.5;
+let pipeDistance = 220;
 
 let score = 0;
 let highScore = localStorage.getItem("highScore") || 0;
+let gameStarted = false;
 
-let pillarWidth = 80;
-let pillarGap = 170;   // good gap
-let pillarSpacing = 240;
-let pillarSpeed = 2.5;
 
-let pillars = [];
+// ===== LOAD IMAGES =====
+const birdImg = new Image();
+birdImg.src = "ball.jpeg";
 
-// ================= IMAGES =================
-const ballImg = new Image();
-ballImg.src = "ball.jpeg";
+const pipeImages = [
+    "pic 1.jpeg",
+    "pic 2.jpeg",
+    "pic 3.jpeg",
+    "pic 4.jpeg",
+    "pic 5.jpeg"
+];
 
-const coverImg = new Image();
-coverImg.src = "cover.jpeg";
 
-const pipeImages = [];
-for (let i = 1; i <= 5; i++) {
-  const img = new Image();
-  img.src = `pic ${i}.jpeg`;
-  pipeImages.push(img);
-}
-
-// ================= AUDIO =================
+// ===== LOAD AUDIO =====
 const jumpSound = new Audio("jump.mp3");
 const crashSound = new Audio("crash.mp3");
 
-// ================= PLAYER =================
-let player = {
-  x: 100,
-  y: 250,
-  width: 40,
-  height: 40
-};
 
-// ================= CREATE PILLAR =================
-function createPillar() {
-  let height = Math.random() * 200 + 150;
-  let img = pipeImages[Math.floor(Math.random() * pipeImages.length)];
-
-  pillars.push({
-    x: canvas.width,
-    topHeight: height - pillarGap,
-    bottomY: height,
-    image: img,
-    passed: false
-  });
-}
-
-// ================= DRAW COVER =================
-function drawCover() {
-  ctx.drawImage(coverImg, 0, 0, canvas.width, canvas.height);
-
-  ctx.fillStyle = "white";
-  ctx.font = "40px Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("BATTA BOSS", canvas.width / 2, 200);
-
-  ctx.fillStyle = "black";
-  ctx.font = "24px Arial";
-  ctx.fillText("Tap to Start", canvas.width / 2, 300);
-  ctx.fillText("High Score: " + highScore, canvas.width / 2, 350);
-}
-
-// ================= RESET =================
-function resetGame() {
-  pillars = [];
-  score = 0;
-  velocity = 0;
-  player.y = 250;
-  gameOver = false;
-}
-
-// ================= UPDATE =================
-function update() {
-
-  if (!gameStarted) {
-    drawCover();
-    return;
-  }
-
-  ctx.fillStyle = "#87CEEB";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  velocity += gravity;
-  player.y += velocity;
-
-  // Create pillars
-  if (pillars.length === 0 || pillars[pillars.length - 1].x < canvas.width - pillarSpacing) {
-    createPillar();
-  }
-
-  for (let i = 0; i < pillars.length; i++) {
-    let p = pillars[i];
-    p.x -= pillarSpeed;
-
-    // Draw top
-    ctx.drawImage(
-      p.image,
-      p.x,
-      0,
-      pillarWidth,
-      p.topHeight
-    );
-
-    // Draw bottom
-    ctx.drawImage(
-      p.image,
-      p.x,
-      p.bottomY,
-      pillarWidth,
-      canvas.height - p.bottomY
-    );
-
-    // Collision
-    if (
-      player.x < p.x + pillarWidth &&
-      player.x + player.width > p.x &&
-      (player.y < p.topHeight || player.y + player.height > p.bottomY)
-    ) {
-      crashSound.play();
-      gameOver = true;
+// ===== CONTROLS =====
+document.addEventListener("keydown", function (e) {
+    if (e.code === "Space") {
+        if (!gameStarted) startGame();
+        bird.velocity = bird.jump;
+        jumpSound.play();
     }
+});
 
-    // Score
-    if (!p.passed && p.x + pillarWidth < player.x) {
-      score++;
-      p.passed = true;
+canvas.addEventListener("touchstart", function () {
+    if (!gameStarted) startGame();
+    bird.velocity = bird.jump;
+    jumpSound.play();
+});
 
-      if (score > highScore) {
-        highScore = score;
-        localStorage.setItem("highScore", highScore);
-      }
-    }
-  }
 
-  // Remove old pillars
-  if (pillars.length && pillars[0].x < -pillarWidth) {
-    pillars.shift();
-  }
-
-  // Ground collision
-  if (player.y + player.height > canvas.height || player.y < 0) {
-    crashSound.play();
-    gameOver = true;
-  }
-
-  if (gameOver) {
-    resetGame();
-    gameStarted = false;
-    return;
-  }
-
-  // Draw player
-  ctx.drawImage(ballImg, player.x, player.y, player.width, player.height);
-
-  // Draw score
-  ctx.fillStyle = "black";
-  ctx.font = "18px Arial";
-  ctx.fillText("High Score: " + highScore, 10, 25);
-  ctx.fillText("Score: " + score, 10, 50);
-}
-
-// ================= CONTROLS =================
-function jump() {
-  if (!gameStarted) {
+// ===== START GAME =====
+function startGame() {
     gameStarted = true;
-    resetGame();
-    return;
-  }
-
-  velocity = jumpPower;
-  jumpSound.play();
+    bird.y = 250;
+    bird.velocity = 0;
+    pipes = [];
+    score = 0;
 }
 
-document.addEventListener("keydown", function(e) {
-  if (e.code === "Space") {
-    jump();
-  }
-});
 
-canvas.addEventListener("touchstart", function() {
-  jump();
-});
+// ===== CREATE PIPE =====
+function createPipe() {
+    let topHeight = Math.random() * 200 + 100;
 
-// ================= GAME LOOP =================
-function gameLoop() {
-  update();
-  requestAnimationFrame(gameLoop);
+    let img = new Image();
+    img.src = pipeImages[Math.floor(Math.random() * pipeImages.length)];
+
+    pipes.push({
+        x: canvas.width,
+        top: topHeight,
+        bottom: topHeight + pipeGap,
+        img: img
+    });
 }
 
-gameLoop();
+
+// ===== GAME LOOP =====
+function update() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // ===== COVER PAGE =====
+    if (!gameStarted) {
+        ctx.fillStyle = "red";
+        ctx.font = "bold 40px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("BATTA BOSS", canvas.width / 2, 200);
+
+        ctx.fillStyle = "black";
+        ctx.font = "20px Arial";
+        ctx.fillText("Tap to Start", canvas.width / 2, 250);
+
+        requestAnimationFrame(update);
+        return;
+    }
+
+    // ===== BIRD PHYSICS =====
+    bird.velocity += bird.gravity;
+    bird.y += bird.velocity;
+
+    // ===== CREATE PIPES =====
+    if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - pipeDistance) {
+        createPipe();
+    }
+
+    // ===== DRAW PIPES =====
+    for (let i = 0; i < pipes.length; i++) {
+        let pipe = pipes[i];
+        pipe.x -= pipeSpeed;
+
+        // Top pipe
+        ctx.drawImage(pipe.img, pipe.x, 0, pipeWidth, pipe.top);
+
+        // Bottom pipe
+        ctx.drawImage(
+            pipe.img,
+            pipe.x,
+            pipe.bottom,
+            pipeWidth,
+            canvas.height - pipe.bottom
+        );
+
+        // Collision
+        if (
+            bird.x < pipe.x + pipeWidth &&
+            bird.x + bird.width > pipe.x &&
+            (bird.y < pipe.top ||
+                bird.y + bird.height > pipe.bottom)
+        ) {
+            crashSound.play();
+            gameStarted = false;
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem("highScore", highScore);
+            }
+        }
+
+        // Score increase
+        if (pipe.x + pipeWidth === bird.x) {
+            score++;
+        }
+    }
+
+    // Remove old pipes
+    pipes = pipes.filter(pipe => pipe.x + pipeWidth > 0);
+
+    // ===== DRAW BIRD =====
+    ctx.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
+
+    // ===== SCORE BOX (SHIFTED RIGHT) =====
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(50, 20, 190, 70);
+
+    ctx.fillStyle = "white";
+    ctx.font = "bold 20px Arial";
+    ctx.textAlign = "left";
+
+    ctx.fillText("High Score: " + highScore, 65, 50);
+    ctx.fillText("Score: " + score, 65, 75);
+
+    requestAnimationFrame(update);
+}
+
+update();
